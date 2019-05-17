@@ -5,15 +5,15 @@ usage:
   version: 2.1
 
   orbs:
-    openshift: circleci/openshift@0.1.0
+    redhat-openshift: circleci/redhat-openshift@0.1.0
 
   jobs:
     create-local-cluster:
-      executor: openshift/machine-for-local-cluster
+      executor: redhat-openshift/machine-for-local-cluster
       steps:
-        - openshift/create-local-cluster-with-oc:
+        - redhat-openshift/create-local-cluster-with-oc:
             skip-registry-check: true
-        - openshift/login-and-update-kubeconfig:
+        - redhat-openshift/login-and-update-kubeconfig:
             server-address: "https://127.0.0.1:8443"
             username: dev1
             password: password

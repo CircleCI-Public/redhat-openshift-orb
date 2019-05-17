@@ -13,7 +13,7 @@ orb_promotion_filters: &orb_promotion_filters
     only: /^(major|minor|patch)-release-v\d+\.\d+\.\d+$/
 
 orbs:
-  openshift: circleci/openshift@dev:alpha
+  redhat-openshift: circleci/redhat-openshift@dev:alpha
   cli: circleci/circleci-cli@0.1.2
   orb-tools: circleci/orb-tools@7.3.0
   queue: eddiewebb/queue@1.1.2
@@ -82,7 +82,7 @@ jobs:
         type: executor
     executor: << parameters.executor >>
     steps:
-      - openshift/create-local-cluster-with-oc:
+      - redhat-openshift/create-local-cluster-with-oc:
           skip-registry-check: true
       - quick-cluster-tests:
           perform-login: true
@@ -125,9 +125,9 @@ jobs:
       - when:
           condition: << parameters.local-cluster >>
           steps:
-            - openshift/create-local-cluster-with-oc:
+            - redhat-openshift/create-local-cluster-with-oc:
                 skip-registry-check: true
-      - openshift/login-and-update-kubeconfig:
+      - redhat-openshift/login-and-update-kubeconfig:
           server-address: << parameters.server-address >>
           username: << parameters.username >>
           password: << parameters.password >>
@@ -175,9 +175,9 @@ jobs:
       - when:
           condition: << parameters.local-cluster >>
           steps:
-            - openshift/create-local-cluster-with-oc:
+            - redhat-openshift/create-local-cluster-with-oc:
                 skip-registry-check: true
-      - openshift/login-and-update-kubeconfig:
+      - redhat-openshift/login-and-update-kubeconfig:
           server-address: << parameters.server-address >>
           username: << parameters.username >>
           password: << parameters.password >>
@@ -247,9 +247,9 @@ jobs:
       - when:
           condition: << parameters.local-cluster >>
           steps:
-            - openshift/create-local-cluster-with-oc:
+            - redhat-openshift/create-local-cluster-with-oc:
                 skip-registry-check: true
-      - openshift/login-and-update-kubeconfig:
+      - redhat-openshift/login-and-update-kubeconfig:
           server-address: << parameters.server-address >>
           username: << parameters.username >>
           password: << parameters.password >>
@@ -267,7 +267,7 @@ jobs:
           resource-name: "deployment/nginx-deployment"
           get-rollout-status: true
   pre-orb-promotion-check:
-    executor: openshift/default
+    executor: redhat-openshift/default
     steps:
       - checkout
       - run:
@@ -319,7 +319,7 @@ workflows:
           requires:
             - orb-tools/pack
       - orb-tools/publish-dev:
-          orb-name: circleci/openshift
+          orb-name: circleci/redhat-openshift
           context: orb-publishing
           requires:
             - queue/block_workflow
@@ -350,11 +350,11 @@ workflows:
       # jobs to test various commands
       - setup-cluster-with-oc:
           name: setup-oc-cluster
-          executor: openshift/machine-for-local-cluster
+          executor: redhat-openshift/machine-for-local-cluster
           filters: *integration_test_filters
       - test-update-kubeconfig:
           name: test-update-kubeconfig-remote-cluster
-          executor: openshift/default
+          executor: redhat-openshift/default
           local-cluster: false
           server-address: ${SERVER_ADDRESS}
           username: ${USERNAME}
@@ -364,7 +364,7 @@ workflows:
           filters: *integration_test_filters
       - test-update-kubeconfig:
           name: test-update-kubeconfig-local-cluster
-          executor: openshift/machine-for-local-cluster
+          executor: redhat-openshift/machine-for-local-cluster
           local-cluster: true
           server-address: "https://127.0.0.1:8443"
           username: system
@@ -375,7 +375,7 @@ workflows:
           filters: *integration_test_filters
       - test-cluster:
           name: test-cluster-remote
-          executor: openshift/default
+          executor: redhat-openshift/default
           local-cluster: false
           server-address: ${SERVER_ADDRESS}
           username: ${USERNAME}
@@ -386,7 +386,7 @@ workflows:
           filters: *integration_test_filters
       - create-deployment:
           name: create-deployment-remote-cluster
-          executor: openshift/default
+          executor: redhat-openshift/default
           local-cluster: false
           server-address: ${SERVER_ADDRESS}
           username: ${USERNAME}
@@ -413,7 +413,7 @@ workflows:
             - pre-orb-promotion-check
           filters: *orb_promotion_filters
       - promote-orb-into-production:
-          orb-name: circleci/openshift
+          orb-name: circleci/redhat-openshift
           orb-ref: dev:${CIRCLE_SHA1:0:7}
           context: orb-publishing
           requires:
