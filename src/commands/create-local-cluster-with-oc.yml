@@ -40,7 +40,7 @@ steps:
   - install-openshift-cli:
       release-tag: << parameters.cli-release-tag >>
   - run:
-      name: Create local cluster with the oc CLI (Requires machine executor)
+      name: Create local cluster with the oc CLI (requires machine executor)
       command: |
         HOST_DATA_DIR="<< parameters.host-data-dir >>"
         HOST_CONFIG_DIR="<< parameters.host-config-dir >>"

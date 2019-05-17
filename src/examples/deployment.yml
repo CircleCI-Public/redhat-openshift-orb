@@ -1,0 +1,54 @@
+description: |
+  Deploy an application to an existing OpenShift cluster with kubectl.
+
+usage:
+  version: 2.1
+
+  orbs:
+    openshift: circleci/openshift@0.1.0
+    kubernetes: circleci/kubernetes@0.3.0
+
+  jobs:
+    deploy-to-cluster:
+      executor: openshift/default
+      steps:
+        - openshift/login-and-update-kubeconfig:
+            # e.g. https://api.mycluster.myserver.org:6443
+            server-address: $OPENSHIFT_SERVER
+            username: $OPENSHIFT_USER
+            password: $OPENSHIFT_PASSWORD
+            # Enable this if the cluster uses a self-signed cert
+            insecure-skip-tls-verify: true
+            openshift-platform-version: "4.x"
+        - run:
+            name: Create example k8s deployment yaml file
+            command: |
+              cat \<<- EOF > deployment.yaml
+              apiVersion: apps/v1
+              kind: Deployment
+              metadata:
+                name: nginx-deployment
+              spec:
+                selector:
+                  matchLabels:
+                    app: nginx
+                replicas: 2
+                template:
+                  metadata:
+                    labels:
+                      app: nginx
+                  spec:
+                    containers:
+                    - name: nginx
+                      image: nginx:1.7.9
+                      ports:
+                      - containerPort: 80
+              EOF
+        - kubernetes/create-or-update-resource:
+            resource-file-path: "deployment.yaml"
+            resource-name: "deployment/nginx-deployment"
+            get-rollout-status: true
+  workflows:
+    deployment:
+      jobs:
+        - deploy-to-cluster
