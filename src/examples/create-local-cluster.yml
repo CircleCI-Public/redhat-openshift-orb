@@ -8,7 +8,7 @@ usage:
     openshift: circleci/openshift@0.1.0
 
   jobs:
-    deploy-to-local-cluster:
+    create-local-cluster:
       executor: openshift/machine-for-local-cluster
       steps:
         - openshift/create-local-cluster-with-oc:
@@ -20,17 +20,13 @@ usage:
             openshift-platform-version: "3.x"
             insecure-skip-tls-verify: true
         - run:
-            name: Deploy an application
+            name: Test the cluster
             command: |
-              # Create a new project to hold the application
-              oc new-project mytest
-              # Tag an application image from a container registry into the project
-              oc tag --source=docker openshift/deployment-example:v1 deployment-example:latest
-              # Deploy the application image
-              oc new-app deployment-example:latest
-              # Display a summary of the deployed resources
-              oc status
+              oc new-project localclustertestproject
+              oc new-app centos/ruby-25-centos7~https://github.com/sclorg/ruby-ex.git
+              kubectl get services
+
   workflows:
     deployment:
       jobs:
-        - deploy-to-local-cluster
+        - create-local-cluster
