@@ -5,14 +5,14 @@ usage:
   version: 2.1
 
   orbs:
-    openshift: circleci/openshift@0.1.0
+    redhat-openshift: circleci/redhat-openshift@0.1.0
     kubernetes: circleci/kubernetes@0.3.0
 
   jobs:
     deploy-to-cluster:
-      executor: openshift/default
+      executor: redhat-openshift/default
       steps:
-        - openshift/login-and-update-kubeconfig:
+        - redhat-openshift/login-and-update-kubeconfig:
             # e.g. https://api.mycluster.myserver.org:6443
             server-address: $OPENSHIFT_SERVER
             username: $OPENSHIFT_USER

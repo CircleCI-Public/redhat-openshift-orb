@@ -1,16 +1,16 @@
-# Openshift Orb [![CircleCI status](https://circleci.com/gh/CircleCI-Public/openshift-orb.svg "CircleCI status")](https://circleci.com/gh/CircleCI-Public/openshift-orb) [![CircleCI Orb Version](https://img.shields.io/badge/endpoint.svg?url=https://badges.circleci.io/orb/circleci/openshift-orb)](https://circleci.com/orbs/registry/orb/circleci/openshift-orb) [![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://raw.githubusercontent.com/circleci-public/openshift-orb/master/LICENSE) [![CircleCI Community](https://img.shields.io/badge/community-CircleCI%20Discuss-343434.svg)](https://discuss.circleci.com/c/orbs)
+# Red Hat OpenShift Orb [![CircleCI status](https://circleci.com/gh/CircleCI-Public/redhat-openshift-orb.svg "CircleCI status")](https://circleci.com/gh/CircleCI-Public/redhat-openshift-orb) [![CircleCI Orb Version](https://img.shields.io/badge/endpoint.svg?url=https://badges.circleci.io/orb/circleci/redhat-openshift-orb)](https://circleci.com/orbs/registry/orb/circleci/redhat-openshift-orb) [![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://raw.githubusercontent.com/circleci-public/redhat-openshift-orb/master/LICENSE) [![CircleCI Community](https://img.shields.io/badge/community-CircleCI%20Discuss-343434.svg)](https://discuss.circleci.com/c/orbs)
 
-A CircleCI Orb to simplify deployments to OpenShift.
+A CircleCI Orb to simplify deployments to Red Hat OpenShift.
 
-Here are some features that the OpenShift orb provides:
+Here are some features that the Red Hat OpenShift orb provides:
 
-- Allowing `kubectl` and other tools that access `kubeconfig` (like `helm`) to connect to a local/remote OpenShift cluster via the `login-and-update-kubeconfig` command
-- Creating of a local OpenShift cluster via the `create-local-cluster-with-oc` command. This could be useful for tests.
-- Installing the OpenShift client CLI (`oc`) via the `install-openshift-cli` command.
+- Allowing `kubectl` and other tools that access `kubeconfig` (like `helm`) to connect to a local/remote Red Hat OpenShift cluster via the `login-and-update-kubeconfig` command
+- Creating of a local Red Hat OpenShift cluster via the `create-local-cluster-with-oc` command. This could be useful for tests.
+- Installing the Red Hat OpenShift client CLI (`oc`) via the `install-openshift-cli` command.
 
 ## Usage
 
-See the [orb registry listing](http://circleci.com/orbs/registry/orb/circleci/openshift) for usage guidelines.
+See the [orb registry listing](http://circleci.com/orbs/registry/orb/circleci/redhat-openshift) for usage guidelines.
 
 ## Requirements
 
@@ -18,20 +18,20 @@ See the [orb registry listing](http://circleci.com/orbs/registry/orb/circleci/op
 
 ## Examples
 
-Full usage examples can be found on the OpenShift orb's page in the orb registry, [here](https://circleci.com/orbs/registry/orb/circleci/openshift#usage-examples).
+Full usage examples can be found on the Red Hat OpenShift orb's page in the orb registry, [here](https://circleci.com/orbs/registry/orb/circleci/redhat-openshift#usage-examples).
 
 ```
 version: 2.1
 
 orbs:
-  openshift: circleci/openshift@0.1.0
+  redhat-openshift: circleci/redhat-openshift@0.1.0
   kubernetes: circleci/kubernetes@0.3.0
 
 jobs:
   deploy-to-cluster:
-    executor: openshift/default
+    executor: redhat-openshift/default
     steps:
-      - openshift/login-and-update-kubeconfig:
+      - redhat-openshift/login-and-update-kubeconfig:
           # e.g. https://api.mycluster.myserver.org:6443
           server-address: $OPENSHIFT_SERVER
           username: $OPENSHIFT_USER
@@ -75,6 +75,6 @@ workflows:
 
 ## Contributing
 
-We welcome [issues](https://github.com/CircleCI-Public/openshift-orb/issues) to and [pull requests](https://github.com/CircleCI-Public/openshift-orb/pulls) against this repository!
+We welcome [issues](https://github.com/CircleCI-Public/redhat-openshift-orb/issues) to and [pull requests](https://github.com/CircleCI-Public/redhat-openshift-orb/pulls) against this repository!
 
 For further questions/comments about this or other orbs, visit [CircleCI's orbs discussion forum](https://discuss.circleci.com/c/orbs).
