@@ -1,0 +1,4 @@
+description: |
+  Machine executor suitable for running local clusters.
+machine:
+  image: ubuntu-1604:201903-01

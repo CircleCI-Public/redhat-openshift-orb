@@ -1,0 +1,443 @@
+version: 2.1
+
+integration_test_filters: &integration_test_filters
+  branches:
+    ignore: /.*/
+  tags:
+    only: /(integration|master)-.*/
+
+orb_promotion_filters: &orb_promotion_filters
+  branches:
+    ignore: /.*/
+  tags:
+    only: /^(major|minor|patch)-release-v\d+\.\d+\.\d+$/
+
+orbs:
+  openshift: sandbox/openshift@dev:alpha
+  cli: circleci/circleci-cli@0.1.2
+  orb-tools: circleci/orb-tools@7.3.0
+  queue: eddiewebb/queue@1.1.2
+  kubernetes: circleci/kubernetes@0.3.0
+
+commands:
+  skip-remote-cluster-tests-if-disabled:
+    parameters:
+      local-cluster:
+          description: Whether this test is for a local cluster.
+          type: boolean
+    steps:
+      - unless:
+          condition: << parameters.local-cluster >>
+          steps:
+            - run:
+                name: Check if remote cluster tests should be conducted
+                command: |
+                  if [ "${SKIP_REMOTE_CLUSTER_TESTS}" = "true" ]
+                  then
+                    circleci step halt
+                  fi
+  quick-cluster-tests:
+    parameters:
+      perform-login:
+        type: boolean
+        default: false
+      username:
+        type: string
+        default: system
+      password:
+        type: string
+        default: admin
+    steps:
+      - run:
+          name: Run some tests on the cluster
+          command: |
+            if [ "<< parameters.perform-login >>" == "true" ]; then
+              oc login -u << parameters.username >>:<< parameters.password >>
+              oc adm policy add-cluster-role-to-user cluster-admin << parameters.username >>
+            fi
+            kubectl get nodes
+            kubectl cluster-info
+            kubectl config view
+            kubectl config get-contexts
+            kubectl get pods --namespace kube-system
+  oc-deployment-tests:
+    parameters:
+      perform-login:
+        type: boolean
+        default: false
+    steps:
+      - run:
+          name: Test deploying an application with oc
+          command: |
+            if [ "<< parameters.perform-login >>" == "true" ]; then
+              oc login -u devuser -p password
+            fi
+            oc new-project mytest
+            oc new-app centos/ruby-25-centos7~https://github.com/sclorg/ruby-ex.git
+            kubectl get services
+jobs:
+  setup-cluster-with-oc:
+    parameters:
+      executor:
+        type: executor
+    executor: << parameters.executor >>
+    steps:
+      - openshift/create-local-cluster-with-oc:
+          skip-registry-check: true
+      - quick-cluster-tests:
+          perform-login: true
+      - oc-deployment-tests:
+          perform-login: true
+  test-update-kubeconfig:
+    parameters:
+      executor:
+        type: executor
+      local-cluster:
+        description: Whether this test is for a local cluster.
+        type: boolean
+      project:
+        description: Name of the project.
+        type: string
+        default: ""
+      server-address:
+        type: string
+      username:
+        type: string
+        default: ""
+      password:
+        type: string
+        default: ""
+      certificate-authority:
+        type: string
+        default: ""
+      token:
+        type: string
+        default: ""
+      insecure-skip-tls-verify:
+        type: boolean
+        default: false
+      openshift-platform-version:
+        type: string
+    executor: << parameters.executor >>
+    steps:
+      - skip-remote-cluster-tests-if-disabled:
+          local-cluster: << parameters.local-cluster >>
+      - when:
+          condition: << parameters.local-cluster >>
+          steps:
+            - openshift/create-local-cluster-with-oc:
+                skip-registry-check: true
+      - openshift/login-and-update-kubeconfig:
+          server-address: << parameters.server-address >>
+          username: << parameters.username >>
+          password: << parameters.password >>
+          certificate-authority: << parameters.certificate-authority >>
+          token: << parameters.token >>
+          insecure-skip-tls-verify: << parameters.insecure-skip-tls-verify >>
+          openshift-platform-version: << parameters.openshift-platform-version >>
+      - when:
+          condition: << parameters.local-cluster >>
+          steps:
+            - run:
+                name: Create new project
+                command: |
+                  oc new-project << parameters.project >>
+      - run:
+          name: Test with kubectl
+          command: |
+            cat ~/.kube/config | grep "<< parameters.server-address >>"
+            kubectl get services
+  test-cluster:
+    parameters:
+      executor:
+        type: executor
+      local-cluster:
+        description: Whether this test is for a local cluster.
+        type: boolean
+      server-address:
+        type: string
+      username:
+        type: string
+        default: ""
+      password:
+        type: string
+        default: ""
+      openshift-platform-version:
+        type: string
+      sleep:
+        type: integer
+        default: 360
+    executor: << parameters.executor >>
+    steps:
+      - skip-remote-cluster-tests-if-disabled:
+          local-cluster: << parameters.local-cluster >>
+      - checkout
+      - when:
+          condition: << parameters.local-cluster >>
+          steps:
+            - openshift/create-local-cluster-with-oc:
+                skip-registry-check: true
+      - openshift/login-and-update-kubeconfig:
+          server-address: << parameters.server-address >>
+          username: << parameters.username >>
+          password: << parameters.password >>
+          insecure-skip-tls-verify: true
+          openshift-platform-version: << parameters.openshift-platform-version >>
+      - quick-cluster-tests:
+          perform-login: << parameters.local-cluster >>
+      - run:
+          name: Run kubectl proxy
+          command: |
+            kubectl proxy --port=8080
+          background: true
+      - run:
+          name: Test kube-config and k8s API
+          command: |
+            cat ~/.kube/config | grep << parameters.server-address >>
+            sleep 10
+            curl http://localhost:8080/api/
+      - kubernetes/create-or-update-resource:
+          resource-file-path: "tests/sample-app/sample-app.yaml"
+          get-rollout-status: true
+          resource-name: "deployment/azure-vote-back"
+      - run:
+          name: Verify application deployment
+          command: |
+            SERVICE_NAME=azure-vote-front
+            kubectl get service $SERVICE_NAME
+            kubectl get pods
+            sleep 30
+            for attempt in {1..20}; do
+              EXTERNAL_IP=$(kubectl get service $SERVICE_NAME | awk '{print $4}' | tail -n1)
+              echo "Checking external IP: ${EXTERNAL_IP}"
+              if [ -n "${EXTERNAL_IP}" ] && [ -z $(echo "${EXTERNAL_IP}" | grep "pending") ]; then
+                break
+              fi
+              echo "Waiting for external IP to be ready: ${EXTERNAL_IP}"
+              sleep 10
+            done
+            sleep << parameters.sleep >>
+            curl -s --retry 10 "http://$EXTERNAL_IP" | grep "Azure Voting App"
+  delete-cluster:
+    parameters:
+      executor:
+        type: executor
+      server-address:
+        type: string
+      username:
+        type: string
+        default: ""
+      password:
+        type: string
+        default: ""
+      openshift-platform-version:
+        type: string
+    executor: << parameters.executor >>
+    steps:
+      - openshift/login-and-update-kubeconfig:
+          server-address: << parameters.server-address >>
+          username: << parameters.username >>
+          password: << parameters.password >>
+          insecure-skip-tls-verify: true
+          openshift-platform-version: << parameters.openshift-platform-version >>
+  create-deployment:
+    parameters:
+      executor:
+        type: executor
+      local-cluster:
+        description: Whether this test is for a local cluster.
+        type: boolean
+      project:
+        description: Project name
+        type: string
+        default: ""
+      server-address:
+        type: string
+      username:
+        type: string
+        default: ""
+      password:
+        type: string
+        default: ""
+      openshift-platform-version:
+        type: string
+    executor: << parameters.executor >>
+    steps:
+      - skip-remote-cluster-tests-if-disabled:
+          local-cluster: << parameters.local-cluster >>
+      - checkout
+      - when:
+          condition: << parameters.local-cluster >>
+          steps:
+            - openshift/create-local-cluster-with-oc:
+                skip-registry-check: true
+      - openshift/login-and-update-kubeconfig:
+          server-address: << parameters.server-address >>
+          username: << parameters.username >>
+          password: << parameters.password >>
+          insecure-skip-tls-verify: true
+          openshift-platform-version: << parameters.openshift-platform-version >>
+      - when:
+          condition: << parameters.local-cluster >>
+          steps:
+            - run:
+                name: Create new project
+                command: |
+                  oc new-project << parameters.project >>
+      - kubernetes/create-or-update-resource:
+          resource-file-path: "tests/nginx-deployment/deployment.yaml"
+          resource-name: "deployment/nginx-deployment"
+          get-rollout-status: true
+  pre-orb-promotion-check:
+    executor: openshift/default
+    steps:
+      - checkout
+      - run:
+          name: Check that this is a master branch commit
+          command: |
+            git clone "$CIRCLE_REPOSITORY_URL" repository
+            cd repository
+            git branch --contains ${CIRCLE_SHA1} | grep "master"
+  promote-orb-into-production:
+    parameters:
+      orb-name:
+        type: string
+        description: |
+          Semver-less name of the orb to be promoted into production
+      orb-ref:
+        type: string
+        description: |
+          Version information of the orb to be promoted into production
+    executor: cli/default
+    steps:
+      - checkout
+      - run:
+          name: Promote dev orb to production
+          command: |
+            RELEASE_TYPE=''
+            if [[ "${CIRCLE_TAG}" =~ major-release-* ]]; then
+              RELEASE_TYPE='major'
+            elif [[ "${CIRCLE_TAG}" =~ minor-release-* ]]; then
+              RELEASE_TYPE='minor'
+            elif [[ "${CIRCLE_TAG}" =~ patch-release-* ]]; then
+              RELEASE_TYPE='patch'
+            fi
+            if [ -n "${RELEASE_TYPE}" ]; then
+              circleci orb publish promote \
+              <<parameters.orb-name>>@<<parameters.orb-ref>> \
+              ${RELEASE_TYPE} --token \
+              ${CIRCLE_TOKEN}
+            fi
+workflows:
+  lint_pack-validate_publish-dev:
+    jobs:
+      - orb-tools/lint
+      - orb-tools/pack:
+          requires:
+            - orb-tools/lint
+      - queue/block_workflow:
+          consider-branch: false
+          time: '60'
+          requires:
+            - orb-tools/pack
+      - orb-tools/publish-dev:
+          orb-name: sandbox/openshift
+          context: orb-publishing
+          requires:
+            - queue/block_workflow
+      - orb-tools/trigger-integration-workflow:
+          name: trigger-integration-dev
+          ssh-fingerprints: 93:1c:e5:85:3c:4f:1e:5a:0a:b3:2e:91:33:e5:1e:ef
+          tag: integration
+          use-git-diff: false
+          static-release-type: patch
+          requires:
+            - orb-tools/publish-dev
+          filters:
+            branches:
+              ignore: master
+      - orb-tools/trigger-integration-workflow:
+          name: trigger-integration-master
+          ssh-fingerprints: 93:1c:e5:85:3c:4f:1e:5a:0a:b3:2e:91:33:e5:1e:ef
+          tag: master
+          use-git-diff: false
+          static-release-type: patch
+          requires:
+            - orb-tools/publish-dev
+          filters:
+            branches:
+              only: master
+  integration-tests:
+    jobs:
+      # jobs to test various commands
+      - setup-cluster-with-oc:
+          name: setup-oc-cluster
+          executor: openshift/machine-for-local-cluster
+          filters: *integration_test_filters
+      - test-update-kubeconfig:
+          name: test-update-kubeconfig-remote-cluster
+          executor: openshift/default
+          local-cluster: false
+          server-address: ${SERVER_ADDRESS}
+          username: ${USERNAME}
+          password: ${PASSWORD}
+          openshift-platform-version: "4.x"
+          insecure-skip-tls-verify: true
+          filters: *integration_test_filters
+      - test-update-kubeconfig:
+          name: test-update-kubeconfig-local-cluster
+          executor: openshift/machine-for-local-cluster
+          local-cluster: true
+          server-address: "https://127.0.0.1:8443"
+          username: system
+          password: admin
+          project: localclustertestproject
+          openshift-platform-version: "3.x"
+          insecure-skip-tls-verify: true
+          filters: *integration_test_filters
+      - test-cluster:
+          name: test-cluster-remote
+          executor: openshift/default
+          local-cluster: false
+          server-address: ${SERVER_ADDRESS}
+          username: ${USERNAME}
+          password: ${PASSWORD}
+          openshift-platform-version: "4.x"
+          requires:
+            - test-update-kubeconfig-remote-cluster
+          filters: *integration_test_filters
+      - create-deployment:
+          name: create-deployment-remote-cluster
+          executor: openshift/default
+          local-cluster: false
+          server-address: ${SERVER_ADDRESS}
+          username: ${USERNAME}
+          password: ${PASSWORD}
+          openshift-platform-version: "4.x"
+          requires:
+            - test-cluster-remote
+          post-steps:
+            - kubernetes/delete-resource:
+                resource-types: "deployments"
+                resource-names: "nginx-deployment"
+                now: true
+                wait: true
+          filters: *integration_test_filters
+  # Tag-triggered workflow to promote a dev orb into production.
+  # The tag is expected to have been applied manually.
+  production-orb-publishing:
+    jobs:
+      - pre-orb-promotion-check:
+          filters: *orb_promotion_filters
+      - hold-for-approval:
+          type: approval
+          requires:
+            - pre-orb-promotion-check
+          filters: *orb_promotion_filters
+      - promote-orb-into-production:
+          orb-name: sandbox/openshift
+          orb-ref: dev:${CIRCLE_SHA1:0:7}
+          context: orb-publishing
+          requires:
+            - hold-for-approval
+          filters: *orb_promotion_filters

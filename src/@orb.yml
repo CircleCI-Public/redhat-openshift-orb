@@ -1,0 +1,6 @@
+
+version: 2.1
+
+description: |
+  An orb for working with the OpenShift Container Platform.
+  Project homepage: https://github.com/CircleCI-Public/openshift-orb

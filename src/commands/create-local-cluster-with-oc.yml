@@ -1,0 +1,62 @@
+description: |
+  Creates a local Kubernetes cluster with the oc client CLI.
+  Requires the setup_remote_engine step if this command is run
+  on a Docker executor.
+
+  Note: This relies on the "oc cluster up" command being available
+  in the version of oc client CLI installed. It is not currently
+  available in version 4 of the OpenShift client CLI.
+
+parameters:
+  host-data-dir:
+    description: |
+      Directory on Docker host for OpenShift data.
+      Specify this to persist data across restarts of the cluster.
+    type: string
+    default: ""
+  host-config-dir:
+    description: |
+      Directory on Docker host for OpenShift configuration.
+    type: string
+    default: ""
+  use-existing-config:
+    description: |
+      Whether to use existing configuration if present.
+    type: boolean
+    default: false
+  cli-release-tag:
+    description: |
+      OpenShift client CLI version.
+      Defaults to the latest stable version.
+    type: string
+    default: ""
+  skip-registry-check:
+    description: |
+      Whether to skip the Docker daemon registry check.
+    type: boolean
+    default: false
+
+steps:
+  - install-openshift-cli:
+      release-tag: << parameters.cli-release-tag >>
+  - run:
+      name: Create local cluster with the oc CLI (requires machine executor)
+      command: |
+        HOST_DATA_DIR="<< parameters.host-data-dir >>"
+        HOST_CONFIG_DIR="<< parameters.host-config-dir >>"
+        SKIP_REGISTRY_CHECK="<< parameters.skip-registry-check >>"
+        USE_EXISTING_CONFIG="<< parameters.use-existing-config >>"
+
+        if [ -n "${HOST_DATA_DIR}" ]; then
+          set -- "$@" --host-data-dir="${HOST_DATA_DIR}"
+        fi
+        if [ -n "${HOST_CONFIG_DIR}" ]; then
+          set -- "$@" --host-config-dir="${HOST_CONFIG_DIR}"
+        fi
+        if [ "${SKIP_REGISTRY_CHECK}" == "true" ]; then
+          set -- "$@" --skip-registry-check=true
+        fi
+        if [ "${USE_EXISTING_CONFIG}" == "true" ]; then
+          set -- "$@" --use-existing-config=true
+        fi
+        oc cluster up "$@"
