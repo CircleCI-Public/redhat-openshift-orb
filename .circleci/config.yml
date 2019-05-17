@@ -13,7 +13,7 @@ orb_promotion_filters: &orb_promotion_filters
     only: /^(major|minor|patch)-release-v\d+\.\d+\.\d+$/
 
 orbs:
-  openshift: sandbox/openshift@dev:alpha
+  openshift: circleci/openshift@dev:alpha
   cli: circleci/circleci-cli@0.1.2
   orb-tools: circleci/orb-tools@7.3.0
   queue: eddiewebb/queue@1.1.2
@@ -218,28 +218,6 @@ jobs:
             done
             sleep << parameters.sleep >>
             curl -s --retry 10 "http://$EXTERNAL_IP" | grep "Azure Voting App"
-  delete-cluster:
-    parameters:
-      executor:
-        type: executor
-      server-address:
-        type: string
-      username:
-        type: string
-        default: ""
-      password:
-        type: string
-        default: ""
-      openshift-platform-version:
-        type: string
-    executor: << parameters.executor >>
-    steps:
-      - openshift/login-and-update-kubeconfig:
-          server-address: << parameters.server-address >>
-          username: << parameters.username >>
-          password: << parameters.password >>
-          insecure-skip-tls-verify: true
-          openshift-platform-version: << parameters.openshift-platform-version >>
   create-deployment:
     parameters:
       executor:
@@ -341,7 +319,7 @@ workflows:
           requires:
             - orb-tools/pack
       - orb-tools/publish-dev:
-          orb-name: sandbox/openshift
+          orb-name: circleci/openshift
           context: orb-publishing
           requires:
             - queue/block_workflow
@@ -435,7 +413,7 @@ workflows:
             - pre-orb-promotion-check
           filters: *orb_promotion_filters
       - promote-orb-into-production:
-          orb-name: sandbox/openshift
+          orb-name: circleci/openshift
           orb-ref: dev:${CIRCLE_SHA1:0:7}
           context: orb-publishing
           requires:
