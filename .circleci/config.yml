@@ -74,6 +74,10 @@ commands:
             fi
             oc new-project mytest
             oc new-app centos/ruby-25-centos7~https://github.com/sclorg/ruby-ex.git
+            sleep 1
+            oc logs -f bc/ruby-ex
+            oc get build/ruby-ex-1
+            if [ $(oc get build/ruby-ex-1 -o=go-template='{{ .status.phase }}') != 'Complete' ]; then exit 1; fi
             kubectl get services
 jobs:
   setup-cluster-with-oc:
