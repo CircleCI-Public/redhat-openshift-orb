@@ -47,6 +47,9 @@ steps:
         SKIP_REGISTRY_CHECK="<< parameters.skip-registry-check >>"
         USE_EXISTING_CONFIG="<< parameters.use-existing-config >>"
 
+        echo '{"insecure-registries": ["172.30.0.0/16"]}' | sudo tee /etc/docker/daemon.json # see https://github.com/openshift/origin/blob/release-3.11/docs/cluster_up_down.md
+        sudo /etc/init.d/docker restart
+
         if [ -n "${HOST_DATA_DIR}" ]; then
           set -- "$@" --host-data-dir="${HOST_DATA_DIR}"
         fi
