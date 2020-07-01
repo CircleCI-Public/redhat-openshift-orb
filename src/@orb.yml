@@ -1,6 +1,7 @@
-
-version: 2.1
-
 description: |
   An orb for working with Red Hat OpenShift.
   Project homepage: https://github.com/CircleCI-Public/redhat-openshift-orb
+display:
+  source_url: https://github.com/circleci-public/openshift-orb
+version: 2.1
+
